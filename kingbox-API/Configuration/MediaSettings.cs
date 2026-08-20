@@ -51,4 +51,14 @@ public class MediaSettings
     /// Whitelist of allowed audio/video qualities.
     /// </summary>
     public string[] AllowedQualities { get; set; } = ["128", "192", "256", "320"];
+
+    /// <summary>
+    /// JavaScript runtime for yt-dlp to solve n-challenges and signature scripts (e.g. "node").
+    /// </summary>
+    public string JsRuntime { get; set; } = "node";
+
+    /// <summary>
+    /// Additional extractor arguments for yt-dlp (e.g. "youtube:player_client=mweb,android").
+    /// </summary>
+    public string ExtractorArgs { get; set; } = "youtube:player_client=mweb,android";
 }

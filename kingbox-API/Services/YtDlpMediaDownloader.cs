@@ -38,9 +38,22 @@ public partial class YtDlpMediaDownloader : IMediaDownloader
             "--dump-single-json",
             "--no-warnings",
             "--no-playlist",
-            "--skip-download",
-            url
+            "--skip-download"
         };
+
+        if (!string.IsNullOrWhiteSpace(_settings.JsRuntime))
+        {
+            arguments.Add("--js-runtimes");
+            arguments.Add(_settings.JsRuntime);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_settings.ExtractorArgs))
+        {
+            arguments.Add("--extractor-args");
+            arguments.Add(_settings.ExtractorArgs);
+        }
+
+        arguments.Add(url);
 
         var timeout = TimeSpan.FromMinutes(2);
 
@@ -107,10 +120,24 @@ public partial class YtDlpMediaDownloader : IMediaDownloader
             "--newline",
             "--progress",
             "--no-continue",
-            "--retries", "3",
-            "-o", outputTemplate,
-            url
+            "--retries", "3"
         };
+
+        if (!string.IsNullOrWhiteSpace(_settings.JsRuntime))
+        {
+            arguments.Add("--js-runtimes");
+            arguments.Add(_settings.JsRuntime);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_settings.ExtractorArgs))
+        {
+            arguments.Add("--extractor-args");
+            arguments.Add(_settings.ExtractorArgs);
+        }
+
+        arguments.Add("-o");
+        arguments.Add(outputTemplate);
+        arguments.Add(url);
 
         var timeout = TimeSpan.FromMinutes(_settings.ProcessTimeoutMinutes);
 
