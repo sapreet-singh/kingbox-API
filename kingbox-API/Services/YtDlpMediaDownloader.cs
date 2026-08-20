@@ -202,9 +202,13 @@ public partial class YtDlpMediaDownloader : IMediaDownloader
         {
             return "The provided URL is not supported or accessible.";
         }
-        if (lower.Contains("private video") || lower.Contains("sign in"))
+        if (lower.Contains("private video"))
         {
-            return "This media is private or requires authentication and cannot be accessed.";
+            return "This media is private and cannot be accessed.";
+        }
+        if (lower.Contains("sign in"))
+        {
+            return "YouTube bot verification triggered. Please retry.";
         }
         if (lower.Contains("video unavailable") || lower.Contains("404"))
         {
