@@ -58,7 +58,7 @@ public class MediaSettings
     public string JsRuntime { get; set; } = "node";
 
     /// <summary>
-    /// Additional extractor arguments for yt-dlp (e.g. "youtube:player_client=mweb,android;player_skip=webpage,configs").
+    /// Additional extractor arguments for yt-dlp (e.g. "youtube:player_client=mweb,android,ios").
     /// </summary>
-    public string ExtractorArgs { get; set; } = "youtube:player_client=mweb,android;player_skip=webpage,configs";
+    public string ExtractorArgs { get; set; } = "youtube:player_client=mweb,android,ios";
 }
