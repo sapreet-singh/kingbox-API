@@ -61,4 +61,19 @@ public class MediaSettings
     /// Additional extractor arguments for yt-dlp (e.g. "youtube:player_client=mweb,android,ios").
     /// </summary>
     public string ExtractorArgs { get; set; } = "youtube:player_client=mweb,android,ios";
+
+    /// <summary>
+    /// Path to YouTube cookies file for datacenter IP bot bypass (e.g. "Storage/cookies.txt").
+    /// </summary>
+    public string CookiesPath { get; set; } = "";
+
+    /// <summary>
+    /// Optional HTTP/HTTPS/SOCKS5 proxy URL for routing yt-dlp requests on datacenter hosts.
+    /// </summary>
+    public string ProxyUrl { get; set; } = "";
+
+    /// <summary>
+    /// Optional YouTube Proof of Origin (PO) token for datacenter IP bypass.
+    /// </summary>
+    public string PoToken { get; set; } = "";
 }

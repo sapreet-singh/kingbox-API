@@ -43,18 +43,7 @@ public partial class YtDlpMediaDownloader : IMediaDownloader
             "--add-header", "Accept-Language: en-US,en;q=0.9"
         };
 
-        if (!string.IsNullOrWhiteSpace(_settings.JsRuntime))
-        {
-            arguments.Add("--js-runtimes");
-            arguments.Add(_settings.JsRuntime);
-        }
-
-        if (!string.IsNullOrWhiteSpace(_settings.ExtractorArgs))
-        {
-            arguments.Add("--extractor-args");
-            arguments.Add(_settings.ExtractorArgs);
-        }
-
+        AppendOptionalArguments(arguments);
         arguments.Add(url);
 
         var timeout = TimeSpan.FromMinutes(2);
@@ -127,18 +116,7 @@ public partial class YtDlpMediaDownloader : IMediaDownloader
             "--add-header", "Accept-Language: en-US,en;q=0.9"
         };
 
-        if (!string.IsNullOrWhiteSpace(_settings.JsRuntime))
-        {
-            arguments.Add("--js-runtimes");
-            arguments.Add(_settings.JsRuntime);
-        }
-
-        if (!string.IsNullOrWhiteSpace(_settings.ExtractorArgs))
-        {
-            arguments.Add("--extractor-args");
-            arguments.Add(_settings.ExtractorArgs);
-        }
-
+        AppendOptionalArguments(arguments);
         arguments.Add("-o");
         arguments.Add(outputTemplate);
         arguments.Add(url);
@@ -234,6 +212,40 @@ public partial class YtDlpMediaDownloader : IMediaDownloader
         }
 
         return "An error occurred while downloading the media from the source.";
+    }
+
+    private void AppendOptionalArguments(List<string> arguments)
+    {
+        if (!string.IsNullOrWhiteSpace(_settings.JsRuntime))
+        {
+            arguments.Add("--js-runtimes");
+            arguments.Add(_settings.JsRuntime);
+        }
+
+        var extractorArgs = _settings.ExtractorArgs ?? "";
+        if (!string.IsNullOrWhiteSpace(_settings.PoToken))
+        {
+            var poArg = $"youtube:po_token=web.gvs+{_settings.PoToken}";
+            extractorArgs = string.IsNullOrWhiteSpace(extractorArgs) ? poArg : $"{extractorArgs};{poArg}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(extractorArgs))
+        {
+            arguments.Add("--extractor-args");
+            arguments.Add(extractorArgs);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_settings.ProxyUrl))
+        {
+            arguments.Add("--proxy");
+            arguments.Add(_settings.ProxyUrl);
+        }
+
+        if (!string.IsNullOrWhiteSpace(_settings.CookiesPath) && File.Exists(_settings.CookiesPath))
+        {
+            arguments.Add("--cookies");
+            arguments.Add(_settings.CookiesPath);
+        }
     }
 
     [GeneratedRegex(@"\[download\]\s+(\d+(?:\.\d+)?)%")]
