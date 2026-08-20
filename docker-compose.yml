@@ -1,0 +1,19 @@
+services:
+  kingbox-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: kingbox-api
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - Cors__AllowedOrigins__0=http://localhost:5173
+      - MediaSettings__YtDlpPath=yt-dlp
+      - MediaSettings__FfmpegPath=ffmpeg
+      - MediaSettings__TempDirectory=/app/storage/temp
+      - MediaSettings__MaxConcurrentConversions=2
+      - MediaSettings__ProcessTimeoutMinutes=30
+    volumes:
+      - ./storage/temp:/app/storage/temp
+    restart: unless-stopped

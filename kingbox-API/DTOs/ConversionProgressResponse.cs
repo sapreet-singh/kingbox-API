@@ -16,9 +16,9 @@ public class ConversionProgressResponse
     public string Status { get; set; } = "Pending";
 
     /// <summary>
-    /// Progress percentage from 0 to 100.
+    /// Accurate progress percentage (0 to 100) or null if indeterminate.
     /// </summary>
-    public int Progress { get; set; } = 0;
+    public double? Progress { get; set; }
 
     /// <summary>
     /// Current execution stage description.

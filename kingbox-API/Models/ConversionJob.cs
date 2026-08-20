@@ -31,17 +31,17 @@ public class ConversionJob
     public ConversionStatus Status { get; set; } = ConversionStatus.Pending;
 
     /// <summary>
-    /// Progress percentage (0 to 100).
+    /// Accurate progress percentage (0 to 100) or null if indeterminate.
     /// </summary>
-    public int Progress { get; set; } = 0;
+    public double? Progress { get; set; } = 0;
 
     /// <summary>
-    /// Human-readable current stage (e.g. "Waiting", "Downloading", "Extracting Audio", "Finished").
+    /// Human-readable current stage (e.g. "Waiting", "Downloading", "Converting", "Finalizing", "Completed").
     /// </summary>
     public string Stage { get; set; } = "Waiting";
 
     /// <summary>
-    /// Final generated file name (without server directory paths).
+    /// Final sanitized generated file name (without server directory paths).
     /// </summary>
     public string? FileName { get; set; }
 
@@ -51,7 +51,12 @@ public class ConversionJob
     public string? FilePath { get; set; }
 
     /// <summary>
-    /// Error message if conversion failed.
+    /// Server-side isolated temporary directory for this specific job.
+    /// </summary>
+    public string? TempDirectory { get; set; }
+
+    /// <summary>
+    /// User-friendly error message if conversion failed.
     /// </summary>
     public string? ErrorMessage { get; set; }
 

@@ -1,20 +1,24 @@
 using KingBox.Api.DTOs;
-using KingBox.Api.Models;
 
 namespace KingBox.Api.Services.Interfaces;
 
 /// <summary>
-/// Service abstraction for media information, conversion jobs, cancellation, and download operations.
+/// Service abstraction for media information, conversion jobs, cancellation, download operations, and tool checks.
 /// </summary>
 public interface IMediaService
 {
     /// <summary>
-    /// Validates URL and retrieves media metadata (Phase 1 returns ready status; Phase 2 integrates engine).
+    /// Checks tool availability and versions for yt-dlp and FFmpeg.
+    /// </summary>
+    Task<ToolStatusResponse> GetToolStatusAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Validates URL and retrieves real media metadata via yt-dlp.
     /// </summary>
     Task<ApiResponse<MediaInfoResponse?>> GetMediaInfoAsync(MediaInfoRequest request, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Validates parameters and registers a new conversion job.
+    /// Validates parameters, registers a new conversion job, and enqueues it for background processing.
     /// </summary>
     Task<ConversionResponse> StartConversionAsync(ConversionRequest request, CancellationToken cancellationToken = default);
 
@@ -24,7 +28,7 @@ public interface IMediaService
     Task<ConversionProgressResponse?> GetProgressAsync(Guid id, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Cancels an in-progress or pending conversion job.
+    /// Cancels an in-progress or pending conversion job, terminating associated process trees.
     /// </summary>
     Task<CancelResponse?> CancelConversionAsync(Guid id, CancellationToken cancellationToken = default);
 
@@ -37,4 +41,4 @@ public interface IMediaService
 /// <summary>
 /// Output file metadata for client download stream.
 /// </summary>
-public record DownloadFileInfo(string FilePath, string ContentType, string DownloadFileName);
+public record DownloadFileInfo(string FilePath, string ContentType, string DownloadFileName, Guid JobId);

@@ -28,11 +28,23 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 3. Register In-Memory State & Services
+// 3. Register Core Services & Singletons
+builder.Services.AddSingleton<IProcessRunner, ProcessRunner>();
+builder.Services.AddSingleton<IToolPathResolver, ToolPathResolver>();
+builder.Services.AddSingleton<IToolValidationService, ToolValidationService>();
+builder.Services.AddSingleton<ITemporaryFileService, TemporaryFileService>();
 builder.Services.AddSingleton<IConversionJobStore, InMemoryConversionJobStore>();
+builder.Services.AddSingleton<IConversionQueue, ConversionQueue>();
+
+// 4. Register Media Engines & Application Services
+builder.Services.AddScoped<IMediaDownloader, YtDlpMediaDownloader>();
+builder.Services.AddScoped<IMediaConverter, FfmpegMediaConverter>();
 builder.Services.AddScoped<IMediaService, MediaService>();
 
-// 4. Configure Controllers & JSON serialization
+// 5. Register Hosted Background Processing Worker
+builder.Services.AddHostedService<MediaProcessingWorker>();
+
+// 6. Configure Controllers & JSON serialization
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -40,7 +52,7 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
-// 5. Configure Swagger / OpenAPI
+// 7. Configure Swagger / OpenAPI
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
@@ -48,7 +60,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "KingBox API",
         Version = "v1",
-        Description = "KingBox Media Downloader and Converter Backend API (Phase 1: Foundation & Architecture)"
+        Description = "KingBox Media Downloader and Converter Backend API (Phase 2: Media Processing Engine)"
     });
 
     // Include XML comments if generated
@@ -62,10 +74,10 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// 6. Global Exception Handling Middleware (First in pipeline)
+// 8. Global Exception Handling Middleware (First in pipeline)
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
-// 7. Swagger Documentation UI
+// 9. Swagger Documentation UI
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -76,7 +88,7 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-// 8. CORS & Routing Middleware
+// 10. CORS & Routing Middleware
 app.UseCors(corsPolicyName);
 
 app.MapControllers();

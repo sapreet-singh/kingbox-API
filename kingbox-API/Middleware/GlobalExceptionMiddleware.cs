@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using KingBox.Api.DTOs;
+using KingBox.Api.Exceptions;
 using KingBox.Api.Services;
 
 namespace KingBox.Api.Middleware;

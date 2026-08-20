@@ -1,83 +1,69 @@
 using Microsoft.Extensions.Options;
 using KingBox.Api.Configuration;
 using KingBox.Api.DTOs;
+using KingBox.Api.Exceptions;
 using KingBox.Api.Models;
 using KingBox.Api.Services.Interfaces;
 
 namespace KingBox.Api.Services;
 
 /// <summary>
-/// Core media service managing validation, conversion lifecycle, and file download retrieval.
+/// Core media application service managing media metadata retrieval, job queueing, cancellation, and download validation.
 /// </summary>
 public class MediaService : IMediaService
 {
     private readonly IConversionJobStore _jobStore;
+    private readonly IConversionQueue _queue;
+    private readonly IToolValidationService _toolValidator;
+    private readonly IMediaDownloader _downloader;
+    private readonly ITemporaryFileService _tempFileService;
     private readonly MediaSettings _settings;
     private readonly ILogger<MediaService> _logger;
-    private readonly string _tempDirectoryPath;
 
     public MediaService(
         IConversionJobStore jobStore,
+        IConversionQueue queue,
+        IToolValidationService toolValidator,
+        IMediaDownloader downloader,
+        ITemporaryFileService tempFileService,
         IOptions<MediaSettings> settings,
-        IWebHostEnvironment environment,
         ILogger<MediaService> logger)
     {
         _jobStore = jobStore;
+        _queue = queue;
+        _toolValidator = toolValidator;
+        _downloader = downloader;
+        _tempFileService = tempFileService;
         _settings = settings.Value;
         _logger = logger;
-
-        // Resolve absolute temp directory path safely
-        _tempDirectoryPath = Path.IsPathRooted(_settings.TempDirectory)
-            ? _settings.TempDirectory
-            : Path.Combine(environment.ContentRootPath, _settings.TempDirectory);
-
-        EnsureTempDirectoryExists();
     }
 
-    private void EnsureTempDirectoryExists()
+    public async Task<ToolStatusResponse> GetToolStatusAsync(CancellationToken cancellationToken = default)
     {
-        try
-        {
-            if (!Directory.Exists(_tempDirectoryPath))
-            {
-                Directory.CreateDirectory(_tempDirectoryPath);
-                _logger.LogInformation("Created temporary media storage directory: {TempDirectory}", _tempDirectoryPath);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to initialize temporary storage directory at {TempDirectory}", _tempDirectoryPath);
-        }
+        return await _toolValidator.GetToolStatusAsync(cancellationToken);
     }
 
-    public Task<ApiResponse<MediaInfoResponse?>> GetMediaInfoAsync(MediaInfoRequest request, CancellationToken cancellationToken = default)
+    public async Task<ApiResponse<MediaInfoResponse?>> GetMediaInfoAsync(MediaInfoRequest request, CancellationToken cancellationToken = default)
     {
         ValidateUrl(request.Url);
 
-        _logger.LogInformation("Received media info request for URL: {Url}", request.Url);
-
-        // Phase 1: Return placeholder ready response without invoking external downloaders
-        var response = new ApiResponse<MediaInfoResponse?>
+        var ytDlpAvailable = await _toolValidator.IsYtDlpAvailableAsync(cancellationToken);
+        if (!ytDlpAvailable)
         {
-            Success = true,
-            Message = "Media information service is ready.",
-            Data = null
-        };
+            _logger.LogWarning("yt-dlp tool is not available to retrieve media info.");
+            throw new InvalidOperationException("yt-dlp is not available. Please verify tool installation or configure YtDlpPath in settings.");
+        }
 
-        return Task.FromResult(response);
+        _logger.LogInformation("Inspecting media information for URL: {Url}", request.Url);
+
+        var info = await _downloader.GetMediaInfoAsync(request.Url, cancellationToken);
+        return ApiResponse<MediaInfoResponse?>.Ok(info, "Media information retrieved successfully.");
     }
 
-    public Task<ConversionResponse> StartConversionAsync(ConversionRequest request, CancellationToken cancellationToken = default)
+    public async Task<ConversionResponse> StartConversionAsync(ConversionRequest request, CancellationToken cancellationToken = default)
     {
         ValidateUrl(request.Url);
         ValidateFormatAndQuality(request.Format, request.Quality);
-
-        var activeCount = _jobStore.GetActiveJobCount();
-        if (activeCount >= _settings.MaxConcurrentConversions)
-        {
-            _logger.LogWarning("Concurrent conversion limit ({Limit}) reached. Current active: {Active}", _settings.MaxConcurrentConversions, activeCount);
-            throw new InvalidOperationException($"Maximum concurrent conversions limit of {_settings.MaxConcurrentConversions} reached. Please try again shortly.");
-        }
 
         var job = new ConversionJob
         {
@@ -87,7 +73,7 @@ public class MediaService : IMediaService
             Quality = request.Quality.Trim().ToLowerInvariant(),
             Status = ConversionStatus.Pending,
             Progress = 0,
-            Stage = "Waiting",
+            Stage = "Waiting in queue",
             CreatedAt = DateTime.UtcNow,
             CancellationTokenSource = new CancellationTokenSource()
         };
@@ -98,17 +84,18 @@ public class MediaService : IMediaService
             throw new InvalidOperationException("Failed to register conversion job.");
         }
 
-        _logger.LogInformation("Accepted conversion request for ID {JobId}, Format: {Format}, Quality: {Quality}", job.Id, job.Format, job.Quality);
+        // Enqueue job for background processing
+        await _queue.EnqueueAsync(job.Id, cancellationToken);
 
-        var response = new ConversionResponse
+        _logger.LogInformation("Enqueued conversion job {JobId}, Format: {Format}, Quality: {Quality}", job.Id, job.Format, job.Quality);
+
+        return new ConversionResponse
         {
             Success = true,
             ConversionId = job.Id,
             Status = job.Status.ToString(),
-            Message = "Conversion request accepted."
+            Message = "Conversion request accepted and queued."
         };
-
-        return Task.FromResult(response);
     }
 
     public Task<ConversionProgressResponse?> GetProgressAsync(Guid id, CancellationToken cancellationToken = default)
@@ -170,6 +157,8 @@ public class MediaService : IMediaService
         }
 
         _jobStore.TryUpdate(job);
+        _tempFileService.CleanupJob(job.Id);
+
         _logger.LogInformation("Conversion job {JobId} was successfully cancelled.", job.Id);
 
         var response = new CancelResponse
@@ -205,7 +194,7 @@ public class MediaService : IMediaService
 
         // Security check: Prevent path traversal by verifying file is strictly within TempDirectory
         var fullPath = Path.GetFullPath(job.FilePath);
-        var allowedRoot = Path.GetFullPath(_tempDirectoryPath);
+        var allowedRoot = Path.GetFullPath(_tempFileService.GetTempRootPath());
 
         if (!fullPath.StartsWith(allowedRoot, StringComparison.OrdinalIgnoreCase))
         {
@@ -218,7 +207,7 @@ public class MediaService : IMediaService
             ? job.FileName
             : $"{job.Id}.{job.Format}";
 
-        return Task.FromResult<DownloadFileInfo?>(new DownloadFileInfo(fullPath, contentType, downloadName));
+        return Task.FromResult<DownloadFileInfo?>(new DownloadFileInfo(fullPath, contentType, downloadName, job.Id));
     }
 
     private void ValidateUrl(string url)
@@ -274,19 +263,4 @@ public class MediaService : IMediaService
             _ => "application/octet-stream"
         };
     }
-}
-
-/// <summary>
-/// Custom domain validation exception mapped to 400 Bad Request by middleware.
-/// </summary>
-public class ArgumentValidationException : Exception
-{
-    public string FieldName { get; }
-
-    public ArgumentValidationException(string fieldName, string message) : base(message)
-    {
-        FieldName = fieldName;
-    }
-
-    public static ArgumentValidationException ForField(string fieldName, string message) => new(fieldName, message);
 }

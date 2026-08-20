@@ -1,11 +1,21 @@
 namespace KingBox.Api.Configuration;
 
 /// <summary>
-/// Configuration settings for media processing and temporary storage.
+/// Configuration settings for media processing, external tools, and temporary storage.
 /// </summary>
 public class MediaSettings
 {
     public const string SectionName = "MediaSettings";
+
+    /// <summary>
+    /// Path or executable name for yt-dlp.
+    /// </summary>
+    public string YtDlpPath { get; set; } = "yt-dlp";
+
+    /// <summary>
+    /// Path or executable name for FFmpeg.
+    /// </summary>
+    public string FfmpegPath { get; set; } = "ffmpeg";
 
     /// <summary>
     /// Path to temporary processing directory.
@@ -21,6 +31,16 @@ public class MediaSettings
     /// Maximum allowed file size in bytes (e.g. 1GB = 1073741824).
     /// </summary>
     public long MaxFileSize { get; set; } = 1073741824;
+
+    /// <summary>
+    /// Process execution timeout in minutes.
+    /// </summary>
+    public int ProcessTimeoutMinutes { get; set; } = 30;
+
+    /// <summary>
+    /// Retention time in hours before cleaning up old/abandoned temporary job folders.
+    /// </summary>
+    public int OldJobCleanupHours { get; set; } = 24;
 
     /// <summary>
     /// Whitelist of allowed output audio/video formats.

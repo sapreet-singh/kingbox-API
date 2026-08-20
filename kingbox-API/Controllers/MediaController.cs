@@ -5,7 +5,7 @@ using KingBox.Api.Services.Interfaces;
 namespace KingBox.Api.Controllers;
 
 /// <summary>
-/// Handles media information retrieval, conversion lifecycle requests, progress tracking, and file downloads.
+/// Handles media information retrieval, conversion lifecycle requests, progress tracking, cancellation, tool statuses, and file downloads.
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
@@ -13,24 +13,43 @@ namespace KingBox.Api.Controllers;
 public class MediaController : ControllerBase
 {
     private readonly IMediaService _mediaService;
+    private readonly ITemporaryFileService _tempFileService;
     private readonly ILogger<MediaController> _logger;
 
-    public MediaController(IMediaService mediaService, ILogger<MediaController> logger)
+    public MediaController(
+        IMediaService mediaService,
+        ITemporaryFileService tempFileService,
+        ILogger<MediaController> logger)
     {
         _mediaService = mediaService;
+        _tempFileService = tempFileService;
         _logger = logger;
     }
 
     /// <summary>
-    /// Inspects and retrieves media details for a given source URL.
+    /// Checks availability and installed versions of yt-dlp and FFmpeg.
+    /// </summary>
+    /// <response code="200">Tool readiness and version information.</response>
+    [HttpGet("tools/status")]
+    [ProducesResponseType(typeof(ApiResponse<ToolStatusResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetToolStatus(CancellationToken cancellationToken)
+    {
+        var status = await _mediaService.GetToolStatusAsync(cancellationToken);
+        return Ok(ApiResponse<ToolStatusResponse>.Ok(status, "Tool status retrieved."));
+    }
+
+    /// <summary>
+    /// Inspects and retrieves media details for a given source URL using yt-dlp.
     /// </summary>
     /// <param name="request">Source URL request object.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <response code="200">Media info retrieved or service ready status.</response>
+    /// <response code="200">Media info successfully retrieved.</response>
     /// <response code="400">Invalid or empty URL provided.</response>
+    /// <response code="409">Tool unavailable or failed to inspect URL.</response>
     [HttpPost("info")]
     [ProducesResponseType(typeof(ApiResponse<MediaInfoResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> GetMediaInfo(
         [FromBody] MediaInfoRequest request,
         CancellationToken cancellationToken)
@@ -45,17 +64,15 @@ public class MediaController : ControllerBase
     }
 
     /// <summary>
-    /// Initiates a new media download/conversion job.
+    /// Initiates and queues a new media download/conversion job.
     /// </summary>
     /// <param name="request">Conversion parameters including URL, format, and quality.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <response code="200">Conversion request accepted and queued.</response>
     /// <response code="400">Invalid parameters, unsupported format, or unsupported quality.</response>
-    /// <response code="409">Maximum concurrent conversions limit reached.</response>
     [HttpPost("convert")]
     [ProducesResponseType(typeof(ConversionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ApiErrorResponse), StatusCodes.Status409Conflict)]
     public async Task<IActionResult> ConvertMedia(
         [FromBody] ConversionRequest request,
         CancellationToken cancellationToken)
@@ -100,7 +117,7 @@ public class MediaController : ControllerBase
     }
 
     /// <summary>
-    /// Downloads the finalized media file for a completed conversion job.
+    /// Downloads the finalized media file for a completed conversion job and cleans up temporary files upon transmission.
     /// </summary>
     /// <param name="id">Unique conversion job ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -127,6 +144,21 @@ public class MediaController : ControllerBase
                 ErrorCode = "JOB_NOT_FOUND"
             });
         }
+
+        // Clean up temporary files on disk after client finishes receiving the stream
+        Response.OnCompleted(() =>
+        {
+            try
+            {
+                _tempFileService.CleanupJob(fileInfo.JobId);
+                _logger.LogInformation("Cleaned up temporary workspace for job {JobId} after download transmission.", fileInfo.JobId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error cleaning up temporary files post-download for job {JobId}.", fileInfo.JobId);
+            }
+            return Task.CompletedTask;
+        });
 
         return PhysicalFile(fileInfo.FilePath, fileInfo.ContentType, fileInfo.DownloadFileName, enableRangeProcessing: true);
     }

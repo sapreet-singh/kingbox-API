@@ -1,0 +1,14 @@
+**/.git
+**/.github
+**/.vs
+**/bin
+**/obj
+**/Storage/Temp
+**/Tools
+**/*.user
+**/*.suo
+**/node_modules
+dist
+.dockerignore
+Dockerfile
+docker-compose.yml
