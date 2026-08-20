@@ -55,6 +55,11 @@ public class ToolPathResolver : IToolPathResolver
             candidates.Add(Path.Combine(AppContext.BaseDirectory, "Tools", exeName));
             candidates.Add(Path.Combine(AppContext.BaseDirectory, "..", "Tools", exeName));
         }
+        else
+        {
+            candidates.Add(Path.Combine("/usr/local/bin", target));
+            candidates.Add(Path.Combine("/usr/bin", target));
+        }
 
         foreach (var candidate in candidates)
         {

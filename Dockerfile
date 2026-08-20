@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
     && chmod a+rx /usr/local/bin/yt-dlp \
+    && ln -sf /usr/local/bin/yt-dlp /usr/bin/yt-dlp \
     && rm -rf /var/lib/apt/lists/*
 
 # Create temporary processing directory with full permissions
@@ -42,8 +43,8 @@ EXPOSE 8080
 # Configure default runtime environment variables
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Production \
-    MediaSettings__YtDlpPath=yt-dlp \
-    MediaSettings__FfmpegPath=ffmpeg \
+    MediaSettings__YtDlpPath=/usr/local/bin/yt-dlp \
+    MediaSettings__FfmpegPath=/usr/bin/ffmpeg \
     MediaSettings__TempDirectory=/app/storage/temp
 
 ENTRYPOINT ["dotnet", "KingBox.Api.dll"]
