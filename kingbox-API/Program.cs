@@ -78,15 +78,14 @@ var app = builder.Build();
 app.UseMiddleware<GlobalExceptionMiddleware>();
 
 // 9. Swagger Documentation UI
-if (app.Environment.IsDevelopment())
-{
+
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "KingBox API v1");
         c.RoutePrefix = "swagger";
     });
-}
+
 
 // 10. CORS & Routing Middleware
 app.UseCors(corsPolicyName);
